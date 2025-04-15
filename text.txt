@@ -113,3 +113,8 @@ ID     Step    Time |    avgR   stdR   avgS  stdS |    expR   objC   objA   etc.
 ;;;;;;                                                                                                                [179 641 179] [820 179   0]
 -1 9.48e+03     484 |  634.56  715.1   2370     0 |    0.17    nan    nan
 | UsedTime:     487 | SavedDir: ./TradeSimulator-v0_D3QN_-1
+
+
+Sharpe Ratio: -0.02532455178770216
+Max Drawdown: -0.006448865805074329
+Return over Max Drawdown: -0.9107512355704641

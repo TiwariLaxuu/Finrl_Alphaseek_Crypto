@@ -134,3 +134,8 @@ the unused settings (e.g. short sell, different voting mechanisms for the ensemb
 │ ├── requirements.txt # Have it if adding any new packages
 │ ├── And any additional scripts you create
 ```
+
+Factor analysis around 600 factor, using PCA reduce dimension to 200 with 96% information 
+Sharpe Ratio: -0.02532455178770216
+Max Drawdown: -0.006448865805074329
+Return over Max Drawdown: -0.9107512355704641 

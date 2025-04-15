@@ -69,7 +69,7 @@ class Ensemble:
         self.agents = []
         self.thresh = 0.001
         self.num_envs = 1
-        self.state_dim = 8 + 2
+        self.state_dim = 200 + 2
         # gpu_id = 0
         self.device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
         eval_env_class = args.eval_env_class
@@ -247,7 +247,7 @@ def run(save_path, agent_list, log_rules=False):
         "env_name": "TradeSimulator-v0",
         "num_envs": num_sims,
         "max_step": max_step,
-        "state_dim": 101 + 2,  # factor_dim + (position, holding)
+        "state_dim": 200 + 2,  # factor_dim + (position, holding)
         "action_dim": 3,  # long, 0, short
         "if_discrete": True,
         "max_position": max_position,
@@ -291,5 +291,5 @@ if __name__ == "__main__":
 
     run(
         "ensemble_teamname",
-        [AgentD3QN, AgentDoubleDQN, AgentDoubleDQN, AgentTwinD3QN],
+        [AgentD3QN, AgentDoubleDQN, AgentTwinD3QN],
     )
