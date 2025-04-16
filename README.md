@@ -87,11 +87,12 @@ Run seq_data.py's convert_btc_csv_to_btc_npy:
 Run `seq_run.py`'s `train_model()`:
 
 The fitting result shows that the loss value on the validation set keeps decreasing, which is highly unusual and may indicate that the sequence input to the prediction model leaks future information.
-Next, we should check the Alpha101 factors.
+Next, we should check the Advance factors above 500, Uisng PCA we reduce to 200 dimension using 96% information with low dimension.
 
 6. Train Reinforcement Learning Strategy
 
-Run `erl_run.py`'s `train_model()`:
+Run `task2_ensemble.py`'s `train_model()`:
+It has 4 agent on-policy agent --> AgentPPODiscrete and Off-policy Agent --> AgentD3QN, AgentDoubleDQN, AgentTwinD3QN 
 
 ## Evaluation
 
