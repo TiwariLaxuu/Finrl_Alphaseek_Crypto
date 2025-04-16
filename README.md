@@ -18,6 +18,11 @@ This starter kit demonstrates how to use the provided code. We provide you with 
 
 - `seq_net.py`: Feeds a time series into a recurrent network `(LSTM+GRU + MLP)` to predict another time series as the label.
   - Class `RnnRegNet`: Processes `input_seq → Concatenate(LSTM, GRU) → RegressionMLP → label_seq`
+  - Class `DilatedCNNRegNet`: Processes `input_seq → Concatenate(DilatedCNN, DilatedCNN) → RegressionMLP → label_seq`
+  - Class `TransformerRegNet`: Processes `input_seq → Concatenate(TransformerEncoderBlock, TransformerEncoderBlock) → RegressionMLP → label_seq`
+  
+
+  
 
 - `seq_run.py`: Inputs Alpha101 weak factor series to train the deep learning recurrent network, predicting future price movement labels.
   - Class `SeqData`: Prepares the input and output sequences for training the neural network, using the function `sample_for_train` to randomly cut sequences for training.
@@ -76,7 +81,7 @@ The `BTC_1sec.csv` contains all data used to train the RNN model and FinRL agent
 4. Generate Technical Factors Alpha101 Describing the Market
 
 Run seq_data.py's convert_btc_csv_to_btc_npy:
-- col1: AlphaID from Alpha1 to Alpha101
+- col1: Advance Factor 200 
 - col2: Used time (second) total
 - col3: Used time (second) of single Alpha
 - col4: alpha shape
