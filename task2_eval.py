@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from erl_config import Config, build_env
 from trade_simulator import EvalTradeSimulator
-from erl_agent import AgentD3QN, AgentDoubleDQN, AgentTwinD3QN
+from erl_agent import AgentD3QN, AgentDoubleDQN, AgentTwinD3QN, AgentPPODiscrete
 from collections import Counter
 from metrics import sharpe_ratio, max_drawdown, return_over_max_drawdown
 
@@ -25,7 +25,7 @@ class EnsembleEvaluator:
         self.agents = []
         self.thresh = 0.001
         self.num_envs = 1
-        self.state_dim = 8 + 2
+        self.state_dim = 200 + 2
         self.device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 
         self.trade_env = build_env(args.env_class, args.env_args, gpu_id=args.gpu_id)
@@ -81,23 +81,23 @@ class EnsembleEvaluator:
                 actions.append(action)
 
             action = self._ensemble_action(actions=actions)
-            print('action', action.item())
-            action_int = action.item() + 1
-            print('action_int', action_int)
+#             print('action', action.item())
+            action_int = action.item() - 1
+#             print('action_int', action_int)
             state, reward, done, _ = trade_env.step(action=action)
 
             action_ints.append(action_int)
-            positions.append(trade_env.position)
+            positions.append(trade_env.position.detach().cpu().numpy())
 
             # Manually compute cumulative returns
             mid_price = trade_env.price_ary[trade_env.step_i, 2].to(self.device)
 
             new_cash = self.cash[-1]
-            print('new_cash', new_cash)
-            print('mid_price', mid_price)
-            print('last_price', last_price)
-            print('current_btc', self.current_btc)
-            print('yes of no', self.cash[-1] > mid_price)
+#             print('new_cash', new_cash)
+#             print('mid_price', mid_price)
+#             print('last_price', last_price)
+#             print('current_btc', self.current_btc)
+#             print('yes of no', self.cash[-1] > mid_price)
             if action_int > 0 and self.cash[-1] > mid_price:  # Buy
                 last_cash = self.cash[-1]
                 new_cash = last_cash - mid_price
@@ -123,9 +123,12 @@ class EnsembleEvaluator:
 
             last_price = mid_price
             current_btcs.append(self.current_btc)
-
+        print('Positions ', len(positions), positions[0])
+        print('np.array(self.net_assets) ', np.array(self.net_assets))
+        print('np.array(self.btc_assets) ', np.array(self.btc_assets))
+        print('np.array(correct_pred) ', np.array(correct_pred))
         # Save results
-        np.save(f"{self.save_path}_positions.npy", positions)
+        np.save(f"{self.save_path}_positions.npy", np.array(positions))
         np.save(f"{self.save_path}_net_assets.npy", np.array(self.net_assets))
         np.save(f"{self.save_path}_btc_positions.npy", np.array(self.btc_assets))
         np.save(f"{self.save_path}_correct_predictions.npy", np.array(correct_pred))
@@ -164,7 +167,7 @@ def run_evaluation(save_path, agent_list):
         "env_name": "TradeSimulator-v0",
         "num_envs": num_sims,
         "max_step": max_step,
-        "state_dim": 101 + 2,
+        "state_dim": 200 + 2,
         "action_dim": 3,
         "if_discrete": True,
         "max_position": max_position,
@@ -190,5 +193,5 @@ def run_evaluation(save_path, agent_list):
 
 if __name__ == "__main__":
     save_path = "trained_agents"
-    agent_list = [AgentD3QN, AgentDoubleDQN, AgentTwinD3QN]
+    agent_list = [AgentPPODiscrete, AgentD3QN, AgentDoubleDQN, AgentTwinD3QN]
     run_evaluation(save_path, agent_list)

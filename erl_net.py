@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from torch.distributions import Categorical
+
 
 TEN = torch.Tensor
 
@@ -113,6 +115,130 @@ class QNetTwinDuel(QNetBase):  # D3QN: Dueling Double DQN
             # action = torch.multinomial(a_prob, num_samples=1)
             action = torch.randint(self.action_dim, size=(state.shape[0], 1))
         return action
+
+    
+class ActorPPOBase(nn.Module):
+    def __init__(self, state_dim: int, action_dim: int):
+        super().__init__()
+        self.explore_rate = 0.125
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.net = None  # Will be defined in child classes
+        
+        # State normalization
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / self.state_std
+    
+    def forward(self, state):
+        raise NotImplementedError
+    
+    def get_action(self, state):
+        raise NotImplementedError
+        
+    def get_logprob_entropy(self, state, action):
+        raise NotImplementedError
+
+
+class ActorDiscretePPO(ActorPPOBase):
+    """PPO Actor for discrete action spaces (Categorical distribution)"""
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *dims, action_dim])
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+        
+    def forward(self, state):
+        state = self.state_norm(state)
+        return self.net(state)  # logits
+    
+    def get_action(self, state):
+        logits = self.forward(state)
+        dist = Categorical(logits=logits)
+        if self.explore_rate < torch.rand(1):
+            action = logits.argmax(dim=1, keepdim=True)
+        else:
+            action = dist.sample().unsqueeze(-1)  # ensure 2D shape
+        return action
+   
+    def get_action_logprob(self, state):
+        logits = self.forward(state)
+        dist = Categorical(logits=logits)
+        action = dist.sample()
+        logprob = dist.log_prob(action)
+        return action.unsqueeze(-1).detach(), logprob.detach()
+    
+    def get_logprob_entropy(self, state, action):
+        print(action.shape, action.squeeze(-1).shape)
+        logits = self.forward(state)
+        dist = Categorical(logits=logits)
+        action_indices = action.argmax(dim=-1)
+        print(action_indices.shape)
+        logprob = dist.log_prob(action_indices)
+        entropy = dist.entropy()
+        return logprob, entropy
+
+
+class ActorContinuousPPO(ActorPPOBase):
+    """PPO Actor for continuous action spaces (Gaussian distribution)"""
+    def __init__(self, dims: [int], state_dim: int, action_dim: int):
+        super().__init__(state_dim=state_dim, action_dim=action_dim)
+        self.net = build_mlp(dims=[state_dim, *dims, action_dim])
+        self.log_std = nn.Parameter(torch.zeros((1, action_dim)))
+        layer_init_with_orthogonal(self.net[-1], std=0.01)
+        
+    def forward(self, state):
+        state = self.state_norm(state)
+        return torch.tanh(self.net(state))  # mean action
+        
+    def get_action(self, state):
+        mean = self.forward(state)
+        dist = Normal(mean, self.log_std.exp())
+        return dist.sample()
+    
+    def get_action_logprob(self, state):
+        mean = self.forward(state)
+        dist = Normal(mean, self.log_std.exp())
+        action = dist.sample()
+        logprob = dist.log_prob(action).sum(1)
+        return action.detach(), logprob.detach()
+    
+    def get_logprob_entropy(self, state, action):
+        mean = self.forward(state)
+        dist = Normal(mean, self.log_std.exp())
+        logprob = dist.log_prob(action).sum(1)
+        entropy = dist.entropy().sum(1)
+        return logprob, entropy
+
+
+class CriticPPO(nn.Module):
+    """PPO Critic (Value function approximator)"""
+    def __init__(self, dims: [int], state_dim: int):
+        super().__init__()
+        self.state_dim = state_dim
+        self.net = build_mlp(dims=[state_dim, *dims, 1])
+        
+        # State normalization
+        self.state_avg = nn.Parameter(torch.zeros((state_dim,)), requires_grad=False)
+        self.state_std = nn.Parameter(torch.ones((state_dim,)), requires_grad=False)
+        
+        # Value normalization
+        self.value_avg = nn.Parameter(torch.zeros((1,)), requires_grad=False)
+        self.value_std = nn.Parameter(torch.ones((1,)), requires_grad=False)
+        
+        layer_init_with_orthogonal(self.net[-1], std=0.1)
+        
+    def state_norm(self, state: TEN) -> TEN:
+        return (state - self.state_avg) / self.state_std
+    
+    def value_re_norm(self, value: TEN) -> TEN:
+        return value * self.value_std + self.value_avg
+        
+    def forward(self, state):
+        state = self.state_norm(state)
+        value = self.net(state)
+        return self.value_re_norm(value).squeeze(-1)
 
 
 def build_mlp(dims: [int], activation: nn = None, if_raw_out: bool = True) -> nn.Sequential:

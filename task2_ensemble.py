@@ -3,10 +3,10 @@ import time
 import torch
 import numpy as np
 from erl_config import Config, build_env
-from erl_replay_buffer import ReplayBuffer
+from erl_replay_buffer import ReplayBuffer, ReplayBufferOnPolicy
 from erl_evaluator import Evaluator
 from trade_simulator import TradeSimulator, EvalTradeSimulator
-from erl_agent import AgentD3QN, AgentDoubleDQN, AgentTwinD3QN
+from erl_agent import AgentD3QN, AgentDoubleDQN, AgentTwinD3QN, AgentPPODiscrete
 from collections import Counter
 
 from metrics import *
@@ -164,7 +164,16 @@ class Ensemble:
             buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
             buffer.update(buffer_items)  # warm up for ReplayBuffer
         else:
-            buffer = []
+            buffer = ReplayBufferOnPolicy(
+                gpu_id=args.gpu_id,
+                num_seqs=args.num_envs,
+                max_size=args.buffer_size,
+                state_dim=args.state_dim,
+                action_dim=1 if args.if_discrete else args.action_dim,
+            )
+            buffer_items = agent.explore_env(env, args.horizon_len * args.eval_times, if_random=True)
+            buffer.update(buffer_items) 
+            
 
         """init evaluator"""
         eval_env_class = args.eval_env_class if args.eval_env_class else args.env_class
@@ -185,8 +194,9 @@ class Ensemble:
         if_train = True
         while if_train:
             buffer_items = agent.explore_env(env, horizon_len)
-
             action = buffer_items[1].flatten()
+            print('action ', action.shape)
+            action = action.long()
             action_count = th.bincount(action).data.cpu().numpy() / action.shape[0]
             action_count = np.ceil(action_count * 998).astype(int)
 
@@ -196,13 +206,13 @@ class Ensemble:
             position_count = position_count.data.cpu().numpy() / position.shape[0]
             position_count = np.ceil(position_count * 998).astype(int)
 
-            print(";;;", " " * 70, action_count, position_count)
+            print(";;;", " ", action_count, position_count)
 
             exp_r = buffer_items[2].mean().item()
             if if_off_policy:
                 buffer.update(buffer_items)
             else:
-                buffer[:] = buffer_items
+                buffer.update(buffer_items)
 
             torch.set_grad_enabled(True)
             logging_tuple = agent.update_net(buffer)
@@ -233,7 +243,7 @@ def run(save_path, agent_list, log_rules=False):
 
     gpu_id = int(sys.argv[1]) if len(sys.argv) > 1 else -1  # Get GPU_ID from command line parameters
 
-    from erl_agent import AgentD3QN
+    from erl_agent import AgentD3QN, AgentPPO
 
     num_sims = 2
     num_ignore_step = 60
@@ -255,7 +265,7 @@ def run(save_path, agent_list, log_rules=False):
         "num_sims": num_sims,
         "step_gap": step_gap,
     }
-    args = Config(agent_class=AgentD3QN, env_class=TradeSimulator, env_args=env_args)
+    args = Config(agent_class=AgentPPO, env_class=TradeSimulator, env_args=env_args)
     args.gpu_id = gpu_id
     args.random_seed = gpu_id
     args.net_dims = (128, 128, 128)
@@ -291,5 +301,6 @@ if __name__ == "__main__":
 
     run(
         "ensemble_teamname",
-        [AgentD3QN, AgentDoubleDQN, AgentTwinD3QN],
+        [AgentPPODiscrete, AgentD3QN, AgentDoubleDQN, AgentTwinD3QN
+        ],
     )
