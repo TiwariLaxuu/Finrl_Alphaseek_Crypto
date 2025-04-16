@@ -92,7 +92,7 @@ def train_model(gpu_id: int):
     # Choose any one of Net model 
     net = RnnRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
     net = DilatedCNNRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
-    net = TransformerRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
+    # net = TransformerRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
 
     optimizer = th.optim.AdamW(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
     criterion = th.nn.MSELoss(reduction='none')
@@ -188,7 +188,7 @@ def valid_model(gpu_id: int):
     from seq_net import RnnRegNet, DilatedCNNRegNet, TransformerRegNet
     net = RnnRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
     net = DilatedCNNRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
-    net = TransformerRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
+    # net = TransformerRegNet(inp_dim=input_dim, mid_dim=mid_dim, out_dim=label_dim, num_layers=num_layers).to(device)
     net.load_state_dict(th.load(predict_net_path, map_location=lambda storage, loc: storage))
 
     predict_ary = np.empty_like(seq_data.valid_label_seq)
